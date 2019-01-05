@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>任务分配-Greatness</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="../../statics/css/font.css">
+    <link rel="stylesheet" href="../../statics/css/weadmin.css">
+    <link rel="stylesheet" href="../../lib/layui/css/layui.css">
+    <!-- 让IE8/9支持媒体查询，从而兼容栅格 -->
+    <!--[if lt IE 9]>
+    <script src="https://cdn.staticfile.org/html5shiv/r29/html5.min.js"></script>
+    <script src="https://cdn.staticfile.org/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <style type="text/css">
+        fieldset {
+            background: rgba(255, 255, 255, .3);
+            border-color: rgba(255, 255, 255, .6);
+            border-style: solid;
+            border-width: 2px;
+            -moz-border-radius: 5px;
+            -webkit-border-radius: 5px;
+            -khtml-border-radius: 5px;
+            border-radius: 5px;
+            line-height: 30px;
+            list-style: none;
+            padding: 5px 10px;
+            margin-bottom: 2px;
+        }
+
+        fieldset legend {
+            color: #302A2A;
+            font: bold 16px/2 Verdana, Geneva, sans-serif;
+            font-weight: bold;
+            text-align: left;
+            text-shadow: 2px 2px 2px rgb(88, 126, 156);
+        }
+
+    </style>
+</head>
+
+<body>
+<div class="weadmin-nav">
+    <span class="layui-breadcrumb">
+        <a href="">首页</a>
+        <a href="">会员管理</a>
+        <a>
+          <cite>会员列表</cite></a>
+      </span>
+    <a class="layui-btn layui-btn-sm" style="line-height:1.6em;margin-top:3px;float:right" href="javascript:location.replace(location.href);"
+       title="刷新">
+        <i class="layui-icon" style="line-height:30px">&#x1002;</i></a>
+</div>
+<div class="weadmin-body">
+    <div class="weadmin-block">
+        <fieldset>
+            <legend style="color:#009688;font-family:'Agency FB'">&nbsp;&nbsp;&nbsp;&nbsp;数据分配
+            </legend>
+            <div class="layui-inline" style="color:#c7254e;font-size:12px;">
+                <i class="layui-icon" style="color:orangered;font-weight: bolder">&nbsp;&nbsp;&#xe62c;</i>
+                共<span id="dataSum"></span>条
+                /已分配<span id="fpNum"></span>条
+                /已处理<span id="clNum"></span>条
+                /未处理<span id="unClNum"></span>条
+            </div>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;请选择用户：
+            <div class="layui-inline">
+                <form class="layui-form" action="">
+                    <div class="layui-input-inline">
+                        <select name="user" lay-filter="user">
+
+                        </select>
+                    </div>
+                </form>
+            </div>
+            &nbsp;&nbsp;&nbsp;&nbsp;请选择语句类别：
+            <div class="layui-inline">
+                <form class="layui-form" action="">
+                    <div class="layui-input-inline">
+                        <select name="ctValue" lay-filter="ctValue">
+
+                        </select>
+                    </div>
+                </form>
+            </div>
+            &nbsp;&nbsp;&nbsp;&nbsp;分配数目：
+            <div class="layui-inline">
+                <input class="layui-input" value="" name="fpRecords" id="fpRecords" autocomplete="off">
+            </div>
+            <button class="layui-btn" id="confirmfp"><i class="layui-icon">&#xe605;</i>确认分配</button>
+        </fieldset>
+        <fieldset>
+            <legend style="color:#009688;font-family:'Agency FB'">&nbsp;&nbsp;&nbsp;&nbsp;用户查询</legend>
+            &nbsp;&nbsp;&nbsp;&nbsp;请输入用户名<em style="color:green;font-size:12px">（支持模糊查询）</em>：
+            <div class="layui-inline">
+                <input class="layui-input" name="id" id="userSearch" autocomplete="off" size="60px">
+            </div>
+            <button class="layui-btn" data-type="reload"><i class="layui-icon">&#xe609;</i>查询</button>
+        </fieldset>
+        <span class="fr" style="line-height:40px"></span>
+    </div>
+    <table class="layui-table" id="userList" lay-filter="userList"></table>
+
+    <script type="text/html" id="isAdminTmp">
+        {{# if(d.isAdmin == 'Y'){ }}
+        <span style="color: red;">超级管理员</span>
+        {{# }else{ }}
+        <span style="color:#009688;font-size: 12px;font-weight: bolder">普通用户</span>
+        {{# } }}
+
+    </script>
+</div>
+<script src="../../lib/layui/layui.js" charset="utf-8"></script>
+<script src="../../statics/js/eleDel.js" type="text/javascript" charset="utf-8"></script>
+
+<script type="text/javascript">
+    var userId = '';       //下拉列表选中的用户
+    var ctVal = '';        //下拉列表选中的语句类别
+
+    layui.use(['table', 'form', 'jquery'], function () {
+        var table = layui.table
+            , $ = layui.jquery
+            , form = layui.form;
+
+        loadfpData();
+
+        table.render({
+            elem: '#userList'
+            , url: '/user/userList.do'
+            , method: 'post'
+            /*, toolbar: '#toolbar'*/
+            , title: '用户列表'
+            , dataType: 'json'
+            , height: 'full-251'
+            , cellMinWidth: 80
+            , totalRow: true
+            , cols: [[
+                {type: 'checkbox', fixed: 'left'}
+                , {field: 'loginName', title: '用户名'}
+                , {field: 'email', title: 'Email'}
+                , {field: 'isAdmin', title: '身份', templet: '#isAdminTmp'}
+                , {field: 'allocatedNum', title: '已分配/条',style:'color:#1E9FFF;font-weight:bolder;'}
+                , {field: 'processed', title: '已处理/条',style:'color:#009688;font-weight:bolder;'}
+                , {field: 'unProcessed', title: '未处理/条',style:'color:red;font-weight:bolder;'}
+            ]]
+            , page: true
+            , limit: 10
+            , limits: [10, 20, 50]
+            , response: {
+                statusName: 'code' //数据状态的字段名称，默认：code
+                , statusCode: 0 //成功的状态码，默认：0
+                , msgName: 'msg' //状态信息的字段名称，默认：msg
+                , countName: 'count' //数据总数的字段名称，默认：count
+                , dataName: 'data' //数据列表的字段名称，默认：data
+            }
+            , id: 'userReload'
+        });
+
+        var active = {
+            reload: function () {
+                var uReload = $('#userSearch');
+
+                //执行重载
+                table.reload('userReload', {
+                    page: {
+                        curr: 1 //重新从第 1 页开始
+                    }
+                    , where: {
+                        // key: {
+                        loginName: uReload.val()
+                        // }
+                    }
+                });
+            }
+        };
+
+        $('.weadmin-block .layui-btn').on('click', function () {
+            var type = $(this).data('type');
+            active[type] ? active[type].call(this) : '';
+        });
+
+        function loadfpData() {
+            $.ajax({
+                url: "/data/doDistribution.do",
+                data: {},
+                dataType: "JSON",
+                type: "post",
+                success: function (res) {
+                    $("#dataSum").text(res.data.totalCount);
+                    $("#fpNum").text(res.data.allocatedNum);
+                    $("#clNum").text(res.data.processed);
+                    $("#unClNum").text(res.data.unProcessed);
+
+                    /*layer.msg(res.data.userInfoList.length+'----'+res.data.contentTypeInfo.length);
+
+                    console.log(JSON.stringify(res.data.userInfoList));*/
+
+                    // var userSel = $("select[name='user']").next().find(".layui-anim");
+                    var userSel = $("select[name='user']");
+                    var userList = res.data.userInfoList;
+                    var userSelHtml = '<option value="" class="layui-select-tips">请选择</option>';
+                    for (var i = 0; i < userList.length; i++) {
+                        userSelHtml += '<option value="' + userList[i].id + '">' + userList[i].loginName + '</option>';
+                        // userSelHtml += '<dd lay-value="' + userList[i].id + '" class>' + userList[i].loginName + '</dd>';
+                    }
+                    userSel.html(userSelHtml);
+
+                    // var ctSel = $("select[name='ctValue']").next().find(".layui-anim");
+                    var ctSel = $("select[name='ctValue']");
+                    var ctList = res.data.contentTypeInfo;
+                    var ctSelHtml = '<option value="" class="layui-select-tips">全部</option>';
+                    for (var i = 0; i < ctList.length; i++) {
+                        ctSelHtml += '<option value="' + ctList[i].id + '">' + ctList[i].typeName + '</option>';
+                        // ctSelHtml += '<dd lay-value="' + ctList[i].id + '" class>' + ctList[i].typeName + '</dd>';
+                    }
+                    ctSel.html(ctSelHtml);
+
+                    //下拉菜单渲染 把内容加载进去
+                    form.render();
+                }
+            });
+        }
+
+        form.on('select(user)', function (obj) {
+            userId = obj.value;
+        });
+
+        form.on('select(ctValue)', function (obj) {
+            ctVal = obj.value;
+        });
+
+        $("#confirmfp").on('click', function () {
+            var fpRecords = $("#fpRecords").val();
+            if (userId == null || userId == '') {
+                layer.msg('请选择用户');
+                return false;
+            }
+            if (fpRecords == null || fpRecords == '' || fpRecords == '0') {
+                layer.msg('请输入要分配的数量');
+                return false;
+            }
+            if (isNaN(fpRecords)) {
+                layer.msg('请输入正确的数字');
+                return false;
+            }
+
+            $.ajax({
+                url: '/data/distribution.do',
+                data: {'userId': userId, 'ctVal': ctVal, 'fpRecords': fpRecords},
+                type: 'post',
+                dataType: "json",
+                success: function (res) {
+                    if (res.code == 0) {
+                        layer.alert('分配任务成功，实际分配' + res.data + '条');
+                        //执行重载
+                        loadfpData();
+                        var uReload = $('#userSearch');
+                        table.reload('userReload', {
+                            page: {
+                                curr: 1 //重新从第 1 页开始
+                            }
+                            , where: {
+                                // key: {
+                                loginName: uReload.val()
+                                // }
+                            }
+                        });
+                    } else {
+                        layer.alert(res.data);
+                    }
+
+                },
+                error:function(res){
+                    if(res.data != null){
+                        layer.alert(res.data);
+                    }else{
+                        layer.alert('分配过程中出现错误，请重试!');
+                    }
+                }
+            });
+
+        });
+    });
+
+</script>
+</body>
+
+</html>
